@@ -1,0 +1,65 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0f6b5c"><title>A Story For You – Ramadan Story Time</title>
+<link rel="stylesheet" href="style.css"></head>
+<body><div class="wrap" id="app"><div class="sub">Loading…</div></div><nav id="nav"></nav>
+<script>
+let D={stories:[],gifts:{},giftLinks:{}};
+const $=s=>document.querySelector(s);
+const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const PREVIEW=/preview=1/.test(location.search);
+let P={done:{}};try{P=JSON.parse(localStorage.getItem('rsp')||'{"done":{}}')}catch(e){}
+const save=()=>{try{localStorage.setItem('rsp',JSON.stringify(P))}catch(e){}};
+let view='home',cur=null,step=0,picked=null;
+fetch('stories.json?'+Date.now()).then(r=>r.json()).then(j=>{D=j;document.title=D.title;render()}).catch(()=>{$('#app').innerHTML='<div class="card">Could not load stories. Please try again.</div>'});
+const sorted=()=>D.stories.slice().sort((a,b)=>a.day-b.day);
+const today=()=>{if(!D.start)return 99;return Math.max(0,Math.floor((Date.now()-new Date(D.start+'T00:00:00'))/864e5)+1)};
+const avail=s=>PREVIEW||s.day<=today();
+const doneN=()=>Object.keys(P.done).filter(d=>D.stories.some(s=>s.day==d)).length;
+const byDay=n=>D.stories.find(s=>s.day==n);
+function go(v,d){view=v;cur=d||null;step=0;picked=null;render();scrollTo(0,0)}
+function render(){
+ $('#nav').innerHTML=[['home','🌙 Today'],['pass','🪪 Passport']].map(([k,l])=>`<button class="${view==k||(view=='story'&&k=='home')?'on':''}" onclick="go('${k}')">${l}</button>`).join('');
+ $('#app').innerHTML=view=='home'?home():view=='story'?story():pass();
+}
+function head(){return `<h1>🌙 ${esc(D.title)}</h1><div class="sub">${esc(D.tagline)} · For everyone: Muslims, non-Muslims, the curious. No registration.</div>`}
+function home(){
+ const list=sorted().filter(avail);const t=list.filter(s=>!P.done[s.day])[0]||list[list.length-1];
+ if(!t)return head()+`<div class="card">Stories are coming soon. Check back at Ramadan! 🌙</div>`;
+ return head()+`<div class="card"><span class="tag">DAY ${t.day}</span><h2>🎁 Your Ramadan Story is here</h2>
+ ${t.clues.map(c=>`<div class="clue">${esc(c)}</div>`).join('')}<div class="sub">Can you guess the story?</div>
+ <button class="btn" onclick="go('story',${t.day})">${P.done[t.day]?'Read again':'🔓 Unlock today\'s story'}</button></div>
+ <div class="card"><div class="sub">Stories discovered: ${doneN()}/${D.stories.length}</div><div class="bar"><i style="width:${D.stories.length?doneN()/D.stories.length*100:0}%"></i></div></div>`;
+}
+function story(){
+ const s=byDay(cur);if(!s)return home();
+ const back=`<button class="btn sec sm" onclick="go('home')">← Back</button>`;
+ if(step==0){return back+`<div class="card"><span class="tag">🔒 DAY ${s.day} · LOCKED</span><h2>${esc(s.question)}</h2>
+  ${s.clues.map(c=>`<div class="clue">${esc(c)}</div>`).join('')}
+  ${s.options.map((o,i)=>`<button class="opt ${picked==null?'':i==s.answer?'ok':'no'}" ${picked!=null?'disabled':''} onclick="pick(${i})">${'ABCD'[i]}. ${esc(o)}</button>`).join('')}
+  ${picked!=null?`<div class="sub" style="margin-top:10px">${picked==s.answer?'✅ You got it!':'Not quite, but now you\'ll find out.'}</div><button class="btn" onclick="step=1;render();scrollTo(0,0)">🔓 Unlock story</button>`:''}</div>`}
+ const d=P.done[s.day];
+ return back+`<div class="card story"><span class="tag">🔓 UNLOCKED · DAY ${s.day}</span><h1>${esc(s.reveal||s.title)}</h1>
+  <p>${esc(s.body)}</p>${s.fact?`<p class="sub">💡 ${esc(s.fact)}</p>`:''}
+  <div class="ref">📌 FROM THE QURAN<br>${esc(s.ref)}</div></div>
+  <div class="card"><h2>💭 Your reflection</h2><p>${esc(s.reflect)}</p>
+  <textarea id="rf" placeholder="Your answer stays private on your device (optional)">${esc(d?d.note:'')}</textarea>
+  <button class="btn" onclick="finish(${s.day})">${d?'Update & close':'✅ Complete & collect stamp'}</button></div>`;
+}
+function pick(i){picked=i;render()}
+function finish(n){const first=!P.done[n];P.done[n]={note:$('#rf').value,t:Date.now()};save();
+ const c=doneN(),g=D.gifts[c];
+ view='pass';cur=null;render();scrollTo(0,0);
+ if(first&&g)setTimeout(()=>alert('🎁 Gift unlocked at '+c+' stories: '+g),50)}
+function pass(){
+ const all=sorted(),c=doneN();
+ const gifts=Object.keys(D.gifts).map(Number).sort((a,b)=>a-b).map(k=>`<div class="li"><span>${c>=k?'🎁':'🔒'} ${k} stories: ${esc(D.gifts[k])}</span>${c>=k&&D.giftLinks[k]?`<a class="btn sm" href="${esc(D.giftLinks[k])}" target="_blank" rel="noopener">Open</a>`:''}</div>`).join('');
+ const t=new Date(),p=n=>String(n).padStart(2,'0'),ds=`${t.getFullYear()}${p(t.getMonth()+1)}${p(t.getDate())}`;
+ const rd='https://calendar.google.com/calendar/render?action=TEMPLATE&text='+encodeURIComponent('🌙 Your Ramadan Story')+'&details='+encodeURIComponent('2 minutes. One story. One reflection. '+location.origin+location.pathname)+'&dates='+ds+'T200000/'+ds+'T201000&recur='+encodeURIComponent('RRULE:FREQ=DAILY;COUNT=30');
+ return `<h1>🪪 My Ramadan Story Passport</h1><div class="sub">Stories discovered: ${c}/${all.length}</div><div class="bar"><i style="width:${all.length?c/all.length*100:0}%"></i></div>
+ <div class="card"><div class="grid">${all.map(s=>`<button class="stamp ${P.done[s.day]?'d':avail(s)?'':'l'}" title="${esc(s.title)}" onclick="${avail(s)?`go('story',${s.day})`:''}">${P.done[s.day]?'✓':s.day}</button>`).join('')}</div></div>
+ <div class="card"><h2>🎁 Gifts</h2>${gifts}</div>
+ <div class="card"><h2>🔔 Daily reminder</h2><div class="sub">Get a notification every evening on your phone's calendar.</div>
+ <a class="btn" href="${rd}" target="_blank" rel="noopener">Add daily reminder (30 days)</a></div>`;
+}
+</script></body></html>

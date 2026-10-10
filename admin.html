@@ -1,0 +1,59 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex">
+<title>Story Editor (admin)</title><link rel="stylesheet" href="style.css"></head>
+<body><div class="wrap" id="app"></div>
+<script>
+let D=null,edit=null;
+const $=s=>document.querySelector(s);
+const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const byDay=n=>D.stories.find(s=>s.day==n);
+const sorted=()=>D.stories.slice().sort((a,b)=>a.day-b.day);
+function draft(){try{localStorage.setItem('rsp-admin',JSON.stringify(D))}catch(e){}}
+(async()=>{let d=null;try{d=JSON.parse(localStorage.getItem('rsp-admin'))}catch(e){}
+ if(!d){try{d=await (await fetch('stories.json?'+Date.now())).json()}catch(e){}}
+ D=d||{title:'A Story For You',tagline:'One Quranic story. Two minutes. One reflection.',start:'',gifts:{5:'',10:'',20:'',30:''},giftLinks:{},stories:[]};render()})();
+function render(){$('#app').innerHTML=edit?editor():main()}
+function main(){
+ const base=location.href.replace(/admin\.html.*$/,'');
+ const t=sorted()[0];
+ const msgs=[['🌅 Morning teaser','🌙 Tonight\'s story is about someone special. Can you guess who? 👀'],['🌇 Evening main','🎁 Your Ramadan Story is ready.\n2 minutes. One story. One reflection.\nUnlock → '+base],['🌙 Night reminder','Before you sleep...\nHave you discovered today\'s story? '+base]];
+ return `<h1>✏️ Story Editor</h1><div class="sub">Your edits are saved as a draft in this browser. When done, press <b>Download stories.json</b> and upload it to your website to update it.</div>
+ <div class="card"><h2>Campaign</h2><label>Title</label><input value="${esc(D.title)}" oninput="D.title=this.value;draft()">
+ <label>Tagline</label><input value="${esc(D.tagline)}" oninput="D.tagline=this.value;draft()">
+ <label>Day 1 date (stories unlock one per day from this date; empty = all open)</label><input type="date" value="${esc(D.start)}" onchange="D.start=this.value;draft()">
+ <label>Gifts (stories needed → gift name, optional link)</label>
+ ${[5,10,20,30].map(k=>`<div class="row" style="margin-top:6px"><input style="flex:0 0 46px" value="${k}" disabled><input value="${esc(D.gifts[k])}" oninput="D.gifts[${k}]=this.value;draft()"><input placeholder="link" value="${esc(D.giftLinks[k]||'')}" oninput="D.giftLinks[${k}]=this.value;draft()"></div>`).join('')}</div>
+ <div class="card"><h2>Stories (${D.stories.length}/30)</h2>${sorted().map(s=>`<div class="li"><span>Day ${s.day}: ${esc(s.title)}</span><span><button class="btn sm sec" onclick="edit=${s.day};render()">Edit</button><button class="btn sm sec" onclick="del(${s.day})">✕</button></span></div>`).join('')}
+ <button class="btn sec" onclick="addNew()">+ Add story</button></div>
+ <div class="card"><h2>💾 Save & publish</h2>
+ <button class="btn" onclick="dl()">Download stories.json</button>
+ <label>Load an existing stories.json to continue editing</label><input type="file" accept=".json" onchange="imp(this)">
+ <button class="btn sec" onclick="if(confirm('Discard draft and reload the live version?')){localStorage.removeItem('rsp-admin');location.reload()}">Discard draft</button>
+ <a class="btn sec" href="index.html?preview=1" target="_blank">Preview app (all days open)</a>
+ <p class="warn">Preview shows the version currently uploaded on your site, not your draft.</p></div>
+ <div class="card"><h2>🔔 Notification messages</h2><div class="sub">Paste into a WhatsApp Channel/Broadcast or Telegram.</div>
+ ${msgs.map(([l,m],i)=>`<div style="margin-top:10px"><b>${l}</b><div class="msg" id="m${i}">${esc(m)}</div><button class="btn sm sec" onclick="cp(${i})">Copy</button></div>`).join('')}</div>`;
+}
+function editor(){
+ const s=byDay(edit);const f=(k,l,ta)=>`<label>${l}</label>${ta?`<textarea id="e_${k}" ${ta>1?'style="min-height:200px"':''}>${esc(s[k])}</textarea>`:`<input id="e_${k}" value="${esc(s[k])}">`}`;
+ return `<button class="btn sec sm" onclick="edit=null;render()">← Cancel</button><div class="card"><h2>Story editor</h2>
+ <label>Day number</label><input id="e_day" type="number" min="1" max="30" value="${s.day}">
+ ${f('title','Title (internal)')}${f('reveal','Revealed title (e.g. The Story of Prophet ...)')}
+ <label>3 clues (one per line, emojis welcome)</label><textarea id="e_clues">${esc(s.clues.join('\n'))}</textarea>
+ ${f('question','Unlock question')}
+ <label>4 options (one per line)</label><textarea id="e_options">${esc(s.options.join('\n'))}</textarea>
+ <label>Correct option</label><select id="e_answer">${'ABCD'.split('').map((c,i)=>`<option value="${i}" ${s.answer==i?'selected':''}>${c}</option>`).join('')}</select>
+ ${f('body','The story (2–3 minutes)',2)}${f('fact','Did you know? (optional)')}${f('ref','From the Quran (surah/ayah)')}${f('reflect','Reflection question')}
+ <button class="btn" onclick="saveStory()">Save story</button></div>`;
+}
+function addNew(){const used=D.stories.map(s=>s.day);let n=1;while(used.includes(n))n++;
+ D.stories.push({day:n,title:'New story',clues:['','',''],question:'Who do you think this story is about?',options:['','','',''],answer:0,reveal:'',body:'',fact:'',ref:'',reflect:''});edit=n;draft();render()}
+function saveStory(){const s=byDay(edit),v=k=>$('#e_'+k).value,L=k=>v(k).split('\n').map(x=>x.trim()).filter(Boolean);
+ const nd=parseInt(v('day'))||s.day;if(nd!=s.day&&byDay(nd)){alert('Day '+nd+' already exists.');return}
+ Object.assign(s,{day:nd,title:v('title'),reveal:v('reveal'),clues:L('clues'),question:v('question'),options:L('options'),answer:+v('answer'),body:v('body'),fact:v('fact'),ref:v('ref'),reflect:v('reflect')});
+ draft();edit=null;render()}
+function del(n){if(confirm('Delete day '+n+'?')){D.stories=D.stories.filter(s=>s.day!=n);draft();render()}}
+function cp(i){const t=$('#m'+i).textContent;navigator.clipboard?navigator.clipboard.writeText(t).then(()=>alert('Copied'),()=>alert('Select and copy manually')):alert('Select and copy manually')}
+function dl(){const b=new Blob([JSON.stringify(D,null,1)],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='stories.json';a.click()}
+function imp(el){const f=el.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{D=JSON.parse(r.result);draft();render()}catch(e){alert('Not a valid stories.json')}};r.readAsText(f)}
+</script></body></html>

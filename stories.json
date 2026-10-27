@@ -1,1 +1,37 @@
-{"title":"A Story For You","tagline":"One Quranic story. Two minutes. One reflection.","start":"","gifts":{"5":"Digital Ramadan wallpaper","10":"Quran reflection pack","20":"Special Ramadan gift","30":"30 Stories Completed 🏆"},"giftLinks":{},"stories":[{"day":1,"title":"Sample story (edit me)","clues":["🕊️ Clue one","🌾 Clue two","❤️ Clue three"],"question":"Who do you think this story is about?","options":["Option A","Option B","Option C","Option D"],"answer":0,"reveal":"Sample story (edit me)","body":"Write your story here in your own words. Keep it around 2–3 minutes of reading.","fact":"Did you know? Write one interesting fact.","ref":"Surah ___ : ayah ___","reflect":"Write one reflection question here."}]}
+{
+ "title": "A Story For You",
+ "tagline": "One Quranic story every two days. Two minutes. One reflection.",
+ "start": "2027-02-09",
+ "gifts": {
+  "5": "Digital Ramadan wallpaper",
+  "10": "Quran reflection pack",
+  "15": "15 Stories Completed 🏆"
+ },
+ "giftLinks": {},
+ "stories": [
+  {
+   "day": 1,
+   "title": "Sample story (edit me)",
+   "clues": [
+    "🕊️ Clue one",
+    "🌾 Clue two",
+    "❤️ Clue three"
+   ],
+   "question": "Who do you think this story is about?",
+   "options": [
+    "Option A",
+    "Option B",
+    "Option C",
+    "Option D"
+   ],
+   "answer": 0,
+   "reveal": "Sample story (edit me)",
+   "body": "Write your story here in your own words. Keep it around 2–3 minutes of reading.",
+   "fact": "Did you know? Write one interesting fact.",
+   "ref": "Surah ___ : ayah ___",
+   "reflect": "Write one reflection question here."
+  }
+ ],
+ "interval": 2,
+ "count": 15
+}

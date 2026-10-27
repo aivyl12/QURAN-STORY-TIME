@@ -13,7 +13,11 @@ const save=()=>{try{localStorage.setItem('rsp',JSON.stringify(P))}catch(e){}};
 let view='home',cur=null,step=0,picked=null;
 fetch('stories.json?'+Date.now()).then(r=>r.json()).then(j=>{D=j;document.title=D.title;render()}).catch(()=>{$('#app').innerHTML='<div class="card">Could not load stories. Please try again.</div>'});
 const sorted=()=>D.stories.slice().sort((a,b)=>a.day-b.day);
-const today=()=>{if(!D.start)return 99;return Math.max(0,Math.floor((Date.now()-new Date(D.start+'T00:00:00'))/864e5)+1)};
+const STEP=()=>D.interval||2,CNT=()=>D.count||15;
+const today=()=>{if(!D.start)return 99;const d=Math.floor((Date.now()-new Date(D.start+'T00:00:00'))/864e5);return d<0?0:Math.floor(d/STEP())+1};
+const dateOf=n=>{const x=new Date(D.start+'T00:00:00');x.setDate(x.getDate()+(n-1)*STEP());return x};
+const fmt=x=>x.toLocaleDateString(undefined,{day:'numeric',month:'short',year:'numeric'});
+const next=()=>{if(!D.start)return '';const t=today();const n=sorted().filter(s=>s.day>t)[0];return n?'Next story unlocks on '+fmt(dateOf(n.day)):''};
 const avail=s=>PREVIEW||s.day<=today();
 const doneN=()=>Object.keys(P.done).filter(d=>D.stories.some(s=>s.day==d)).length;
 const byDay=n=>D.stories.find(s=>s.day==n);
@@ -25,11 +29,11 @@ function render(){
 function head(){return `<h1>🌙 ${esc(D.title)}</h1><div class="sub">${esc(D.tagline)} · For everyone: Muslims, non-Muslims, the curious. No registration.</div>`}
 function home(){
  const list=sorted().filter(avail);const t=list.filter(s=>!P.done[s.day])[0]||list[list.length-1];
- if(!t)return head()+`<div class="card">Stories are coming soon. Check back at Ramadan! 🌙</div>`;
+ if(!t)return head()+`<div class="card">${D.start&&today()==0?'The first story unlocks on <b>'+fmt(dateOf(1))+'</b>. 🌙':'Stories are coming soon. 🌙'}<div class="sub">Add the reminder in the Passport tab so you don't miss it.</div></div>`;
  return head()+`<div class="card"><span class="tag">DAY ${t.day}</span><h2>🎁 Your Ramadan Story is here</h2>
  ${t.clues.map(c=>`<div class="clue">${esc(c)}</div>`).join('')}<div class="sub">Can you guess the story?</div>
  <button class="btn" onclick="go('story',${t.day})">${P.done[t.day]?'Read again':'🔓 Unlock today\'s story'}</button></div>
- <div class="card"><div class="sub">Stories discovered: ${doneN()}/${D.stories.length}</div><div class="bar"><i style="width:${D.stories.length?doneN()/D.stories.length*100:0}%"></i></div></div>`;
+ <div class="card"><div class="sub">${next()}</div><div class="sub">Stories discovered: ${doneN()}/${D.stories.length}</div><div class="bar"><i style="width:${D.stories.length?doneN()/D.stories.length*100:0}%"></i></div></div>`;
 }
 function story(){
  const s=byDay(cur);if(!s)return home();
@@ -54,12 +58,19 @@ function finish(n){const first=!P.done[n];P.done[n]={note:$('#rf').value,t:Date.
 function pass(){
  const all=sorted(),c=doneN();
  const gifts=Object.keys(D.gifts).map(Number).sort((a,b)=>a-b).map(k=>`<div class="li"><span>${c>=k?'🎁':'🔒'} ${k} stories: ${esc(D.gifts[k])}</span>${c>=k&&D.giftLinks[k]?`<a class="btn sm" href="${esc(D.giftLinks[k])}" target="_blank" rel="noopener">Open</a>`:''}</div>`).join('');
- const t=new Date(),p=n=>String(n).padStart(2,'0'),ds=`${t.getFullYear()}${p(t.getMonth()+1)}${p(t.getDate())}`;
- const rd='https://calendar.google.com/calendar/render?action=TEMPLATE&text='+encodeURIComponent('🌙 Your Ramadan Story')+'&details='+encodeURIComponent('2 minutes. One story. One reflection. '+location.origin+location.pathname)+'&dates='+ds+'T200000/'+ds+'T201000&recur='+encodeURIComponent('RRULE:FREQ=DAILY;COUNT=30');
+ const st=D.start||'2027-02-09',ds=st.replace(/-/g,''),n=CNT(),sd=new Date(st+'T00:00:00'),ed=new Date(sd);ed.setDate(ed.getDate()+(STEP())*(n-1));
+ const rule='RRULE:FREQ=DAILY;INTERVAL='+STEP()+';COUNT='+n,link=location.origin+location.pathname;
+ const gc=(h,l)=>'https://calendar.google.com/calendar/render?action=TEMPLATE&text='+encodeURIComponent('🌙 Your Ramadan Story'+l)+'&details='+encodeURIComponent('2 minutes. One story. One reflection. '+link)+'&dates='+ds+'T'+h+'0000/'+ds+'T'+h+'1000&recur='+encodeURIComponent(rule);
  return `<h1>🪪 My Ramadan Story Passport</h1><div class="sub">Stories discovered: ${c}/${all.length}</div><div class="bar"><i style="width:${all.length?c/all.length*100:0}%"></i></div>
  <div class="card"><div class="grid">${all.map(s=>`<button class="stamp ${P.done[s.day]?'d':avail(s)?'':'l'}" title="${esc(s.title)}" onclick="${avail(s)?`go('story',${s.day})`:''}">${P.done[s.day]?'✓':s.day}</button>`).join('')}</div></div>
  <div class="card"><h2>🎁 Gifts</h2>${gifts}</div>
- <div class="card"><h2>🔔 Daily reminder</h2><div class="sub">Get a notification every evening on your phone's calendar.</div>
- <a class="btn" href="${rd}" target="_blank" rel="noopener">Add daily reminder (30 days)</a></div>`;
+ <div class="card"><h2>🔔 Reminders</h2><div class="sub">A new story every ${STEP()} days, ${fmt(sd)} – ${fmt(ed)}. Add both reminders to your calendar: you'll be notified at 6:00 am and 7:00 pm on story days.</div>
+ <a class="btn" href="${gc('06',' (morning)')}" target="_blank" rel="noopener">Google Calendar: 6:00 am</a>
+ <a class="btn" href="${gc('19',' (evening)')}" target="_blank" rel="noopener">Google Calendar: 7:00 pm</a>
+ <button class="btn sec" onclick="ics('${ds}','${rule}','${link}')">iPhone / Outlook: download both (.ics)</button></div>`;
 }
+function ics(ds,rule,link){const st=new Date().toISOString().replace(/[-:]|\.\d+/g,'');
+ const ev=(h,l)=>['BEGIN:VEVENT','UID:ramadan-story-'+ds+'-'+h+'@story','DTSTAMP:'+st,'DTSTART:'+ds+'T'+h+'0000','DTEND:'+ds+'T'+h+'1000',rule,'SUMMARY:🌙 Your Ramadan Story'+l,'DESCRIPTION:2 minutes. One story. One reflection. '+link,'URL:'+link,'BEGIN:VALARM','ACTION:DISPLAY','DESCRIPTION:Your Ramadan Story is ready','TRIGGER:PT0S','END:VALARM','END:VEVENT'];
+ const t=['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//RamadanStory//EN'].concat(ev('06',' (morning)'),ev('19',' (evening)'),['END:VCALENDAR']).join('\r\n');
+ const x=document.createElement('a');x.href=URL.createObjectURL(new Blob([t],{type:'text/calendar'}));x.download='ramadan-story.ics';x.click()}
 </script></body></html>
